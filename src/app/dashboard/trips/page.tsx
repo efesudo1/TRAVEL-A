@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/lib/auth-store';
-import { getTripsAction, getBusesAction, getMuavinlerAction, createTripAction } from '@/app/actions/admin';
+import { getTripsAction, getBusesAction, getMuavinlerAction, createTripAction, updateTripAction, deleteTripAction, getTripStopsAction } from '@/app/actions/admin';
 import { getStatusBadge, formatTime } from '@/lib/utils';
 import type { Trip } from '@/lib/types';
+import { Pencil, Trash2 } from 'lucide-react';
 
 export default function TripsPage() {
     const user = useAuthStore(s => s.user);
@@ -25,11 +26,14 @@ export default function TripsPage() {
 
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingTripId, setEditingTripId] = useState<string | null>(null);
     const [newTrip, setNewTrip] = useState({
         route_name: '',
         departure_time: '',
         bus_id: '',
         assistant_id: '',
+        status: 'scheduled',
         stops: [
             { location_name: '', stop_order: 1, planned_arrival: '' },
             { location_name: '', stop_order: 2, planned_arrival: '' }
@@ -103,6 +107,7 @@ export default function TripsPage() {
                 departure_time: '',
                 bus_id: buses[0]?.id || '',
                 assistant_id: muavinler[0]?.id || '',
+                status: 'scheduled',
                 stops: [
                     { location_name: '', stop_order: 1, planned_arrival: '' },
                     { location_name: '', stop_order: 2, planned_arrival: '' }
@@ -125,6 +130,68 @@ export default function TripsPage() {
         const updatedStops = [...newTrip.stops];
         updatedStops[index] = { ...updatedStops[index], [field]: value };
         setNewTrip({ ...newTrip, stops: updatedStops });
+    };
+
+    const handleEditTrip = async (tripId: string) => {
+        setEditingTripId(tripId);
+        const trip = trips.find(t => t.id === tripId);
+        if (!trip) return;
+
+        const stopsRes = await getTripStopsAction(tripId);
+        const tripStops = stopsRes.stops || [];
+
+        setNewTrip({
+            route_name: trip.route_name,
+            departure_time: trip.departure_time ? new Date(trip.departure_time).toISOString().slice(0, 16) : '',
+            bus_id: trip.bus_id || buses[0]?.id || '',
+            assistant_id: trip.assistant_id || muavinler[0]?.id || '',
+            status: trip.status || 'scheduled',
+            stops: tripStops.length > 0 ? tripStops.map((s: any) => ({
+                id: s.id,
+                location_name: s.location_name,
+                stop_order: s.stop_order,
+                planned_arrival: s.planned_arrival ? new Date(s.planned_arrival).toISOString().slice(0, 16) : ''
+            })) : [
+                { location_name: '', stop_order: 1, planned_arrival: '' },
+                { location_name: '', stop_order: 2, planned_arrival: '' }
+            ]
+        });
+        setShowEditModal(true);
+    };
+
+    const handleUpdateTrip = async () => {
+        if (!editingTripId || !newTrip.route_name || !newTrip.departure_time) {
+            alert('Lütfen tüm zorunlu alanları doldurun.');
+            return;
+        }
+        setActionLoading(true);
+        const res = await updateTripAction(editingTripId, {
+            ...newTrip,
+            stops: newTrip.stops.map(s => ({
+                ...s,
+                planned_arrival: s.planned_arrival || newTrip.departure_time
+            }))
+        });
+        if (res.success) {
+            await fetchData();
+            setShowEditModal(false);
+            setEditingTripId(null);
+        } else {
+            alert(res.error);
+        }
+        setActionLoading(false);
+    };
+
+    const handleDeleteTrip = async (tripId: string) => {
+        if (!confirm('Bu seferi silmek istediğinize emin misiniz?')) return;
+        setActionLoading(true);
+        const res = await deleteTripAction(tripId);
+        if (res.success) {
+            await fetchData();
+        } else {
+            alert(res.error);
+        }
+        setActionLoading(false);
     };
 
     return (
@@ -199,9 +266,14 @@ export default function TripsPage() {
                                                 <p className="text-white/30 text-xs mt-1 font-mono tracking-tight">{trip.travel_number} • {trip.company_name}</p>
                                             </div>
                                         </div>
-                                        <Button variant="ghost" className="text-white/20 hover:text-white h-10 w-10 rounded-xl">
-                                            <ChevronRight className="w-5 h-5" />
-                                        </Button>
+                                        <div className="flex gap-2">
+                                            <Button variant="ghost" className="text-white/20 hover:text-digibus-orange h-10 w-10 rounded-xl" onClick={() => handleEditTrip(trip.id)}>
+                                                <Pencil className="w-4 h-4" />
+                                            </Button>
+                                            <Button variant="ghost" className="text-white/20 hover:text-red-400 h-10 w-10 rounded-xl" onClick={() => handleDeleteTrip(trip.id)}>
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
                                     </div>
 
                                     {/* Details Grid */}
@@ -374,6 +446,98 @@ export default function TripsPage() {
                                 disabled={actionLoading}
                             >
                                 {actionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Seferi Başlat'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Edit Trip Modal */}
+            {showEditModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setShowEditModal(false)}>
+                    <div className="bg-digibus-slate border border-white/10 rounded-[32px] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-digibus-slate p-8 border-b border-white/5 flex items-center justify-between z-10">
+                            <div>
+                                <h3 className="text-white font-black text-2xl flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-digibus-orange rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                                        <Pencil className="w-5 h-5 text-white" />
+                                    </div>
+                                    Seferi Düzenle
+                                </h3>
+                            </div>
+                            <button onClick={() => setShowEditModal(false)} className="w-10 h-10 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/40 hover:text-white transition-all">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-8 space-y-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-white/40 text-[10px] uppercase font-black ml-1 tracking-widest">Güzergah Adı</label>
+                                    <Input placeholder="Örn: İstanbul - Ankara" value={newTrip.route_name} onChange={e => setNewTrip({ ...newTrip, route_name: e.target.value })} className="bg-white/5 border-white/10 text-white h-12 rounded-2xl focus:border-digibus-orange/50 transition-all font-bold" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-white/40 text-[10px] uppercase font-black ml-1 tracking-widest">Kalkış Saati</label>
+                                    <Input type="datetime-local" value={newTrip.departure_time} onChange={e => setNewTrip({ ...newTrip, departure_time: e.target.value })} className="bg-white/5 border-white/10 text-white h-12 rounded-2xl focus:border-digibus-orange/50 transition-all font-bold" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-white/40 text-[10px] uppercase font-black ml-1 tracking-widest">Otobüs</label>
+                                    <select value={newTrip.bus_id} onChange={e => setNewTrip({ ...newTrip, bus_id: e.target.value })} className="w-full h-12 bg-white/5 border border-white/10 text-white rounded-2xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-digibus-orange font-bold transition-all">
+                                        {buses.map(b => (<option key={b.id} value={b.id} className="bg-digibus-navy">{b.plate_number} ({b.model})</option>))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-white/40 text-[10px] uppercase font-black ml-1 tracking-widest">Muavin</label>
+                                    <select value={newTrip.assistant_id} onChange={e => setNewTrip({ ...newTrip, assistant_id: e.target.value })} className="w-full h-12 bg-white/5 border border-white/10 text-white rounded-2xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-digibus-orange font-bold transition-all">
+                                        <option value="" className="bg-digibus-navy">Muavin Yok</option>
+                                        {muavinler.map(m => (<option key={m.id} value={m.id} className="bg-digibus-navy">{m.full_name}</option>))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-white/40 text-[10px] uppercase font-black ml-1 tracking-widest">Durum</label>
+                                    <select value={newTrip.status} onChange={e => setNewTrip({ ...newTrip, status: e.target.value })} className="w-full h-12 bg-white/5 border border-white/10 text-white rounded-2xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-digibus-orange font-bold transition-all">
+                                        <option value="scheduled" className="bg-digibus-navy">Planlandı</option>
+                                        <option value="on_time" className="bg-digibus-navy">Zamanında</option>
+                                        <option value="delayed" className="bg-digibus-navy">Gecikmeli</option>
+                                        <option value="completed" className="bg-digibus-navy">Tamamlandı</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Stops */}
+                            <div className="space-y-6 pt-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-white/50 text-xs font-black uppercase tracking-[0.2em]">Güzergah Durakları</h4>
+                                    <Button variant="ghost" size="sm" onClick={addStop} className="text-digibus-orange hover:text-digibus-orange hover:bg-digibus-orange/5 font-bold h-8 px-3 rounded-xl border border-digibus-orange/20">
+                                        <Plus className="w-3.5 h-3.5 mr-1" /> Durak Ekle
+                                    </Button>
+                                </div>
+                                <div className="space-y-3">
+                                    {newTrip.stops.map((stop, index) => (
+                                        <div key={index} className="flex gap-3 items-end bg-white/5 p-4 rounded-2xl border border-white/5">
+                                            <div className="flex-1 space-y-1.5">
+                                                <label className="text-[10px] text-white/20 font-black uppercase tracking-widest ml-1">{index + 1}. Durak</label>
+                                                <Input placeholder="Şehir / Terminal" value={stop.location_name} onChange={e => updateStop(index, 'location_name', e.target.value)} className="bg-transparent border-white/10 text-white h-10 rounded-xl focus:border-digibus-orange/50 font-bold" />
+                                            </div>
+                                            <div className="w-48 space-y-1.5">
+                                                <label className="text-[10px] text-white/20 font-black uppercase tracking-widest ml-1">Varış Saati</label>
+                                                <Input type="datetime-local" value={stop.planned_arrival} onChange={e => updateStop(index, 'planned_arrival', e.target.value)} className="bg-transparent border-white/10 text-white h-10 rounded-xl focus:border-digibus-orange/50 font-bold" />
+                                            </div>
+                                            <Button variant="ghost" size="icon" className="h-10 w-10 text-white/10 hover:text-red-400 rounded-xl hover:bg-red-400/5" onClick={() => { const updated = newTrip.stops.filter((_, i) => i !== index); setNewTrip({ ...newTrip, stops: updated }); }}>
+                                                <X className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 border-t border-white/5 bg-white/[0.02] flex gap-4">
+                            <Button variant="ghost" className="flex-1 text-white/40 hover:text-white h-14 rounded-2xl font-bold" onClick={() => setShowEditModal(false)}>İptal</Button>
+                            <Button className="flex-1 bg-digibus-orange hover:bg-digibus-orange-dark text-white h-14 rounded-2xl font-black text-lg shadow-xl shadow-orange-500/20" onClick={handleUpdateTrip} disabled={actionLoading}>
+                                {actionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Değişiklikleri Kaydet'}
                             </Button>
                         </div>
                     </div>

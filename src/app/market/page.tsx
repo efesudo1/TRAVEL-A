@@ -120,6 +120,17 @@ function MarketContent() {
         );
     }
 
+    if (!user || user.role !== 'passenger') {
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
+                <ShoppingBag className="w-20 h-20 text-gray-200 mb-6" />
+                <h1 className="text-xl font-bold text-gray-900 mb-2">Giriş Yapmanız Gerekiyor</h1>
+                <p className="text-gray-500 mb-8">Marketten alışveriş yapabilmek için yolcu hesabınız ile giriş yapmalısınız.</p>
+                <Button onClick={() => router.push('/login?role=passenger')} className="bg-orange-500 hover:bg-orange-600 rounded-2xl px-8">Giriş Yap</Button>
+            </div>
+        );
+    }
+
     if (!tripId) {
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center">

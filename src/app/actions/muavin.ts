@@ -10,7 +10,7 @@ export async function getMuavinTripAction(userId: string) {
             SELECT t.*, b.plate_number, b.id as bus_id
             FROM trips t
             LEFT JOIN buses b ON t.bus_id = b.id
-            WHERE t.assistant_id = $1 AND t.status IN ('scheduled', 'on-time', 'delayed')
+            WHERE t.assistant_id = $1 AND t.status IN ('scheduled', 'on_time', 'delayed')
             ORDER BY t.departure_time ASC
             LIMIT 1
         `, [userId]);

@@ -165,10 +165,42 @@ export async function getBookingsAction(companyId: string | null) {
 
 export async function createBookingAction(data: any) {
     try {
+        // Auto-link passenger by email
+        let passengerId = null;
+        if (data.passenger_email) {
+            const userRes = await query(
+                'SELECT id FROM users WHERE LOWER(email) = $1',
+                [data.passenger_email.trim().toLowerCase()]
+            );
+            if (userRes.rows.length > 0) {
+                passengerId = userRes.rows[0].id;
+            }
+        }
+
         const result = await query(
-            'INSERT INTO bookings (trip_id, passenger_name, passenger_phone, passenger_email, pnr_code, seat_number, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-            [data.trip_id, data.passenger_name, data.passenger_phone, data.passenger_email, data.pnr_code, data.seat_number, 'confirmed']
+            'INSERT INTO bookings (trip_id, passenger_name, passenger_phone, passenger_email, pnr_code, seat_number, passenger_id, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [data.trip_id, data.passenger_name, data.passenger_phone, data.passenger_email, data.pnr_code, data.seat_number, passengerId, 'confirmed']
         );
+
+        // Auto-create/update loyalty points if passenger is linked
+        if (passengerId && data.trip_id) {
+            const tripRes = await query('SELECT company_id FROM trips WHERE id = $1', [data.trip_id]);
+            if (tripRes.rows.length > 0) {
+                const companyId = tripRes.rows[0].company_id;
+                await query(`
+                    INSERT INTO loyalty_points (passenger_id, company_id, points_count, total_trips)
+                    VALUES ($1, $2, 1, 1)
+                    ON CONFLICT (passenger_id, company_id)
+                    DO UPDATE SET
+                        points_count = CASE
+                            WHEN loyalty_points.points_count >= 7 THEN 0
+                            ELSE loyalty_points.points_count + 1
+                        END,
+                        total_trips = loyalty_points.total_trips + 1
+                `, [passengerId, companyId]);
+            }
+        }
+
         return { success: true, booking: result.rows[0] };
     } catch (error) {
         console.error('createBookingAction error:', error);
@@ -345,5 +377,57 @@ export async function createTripAction(data: {
     } catch (error) {
         console.error('createTripAction error:', error);
         return { error: 'Sefer oluşturulurken bir hata oluştu' };
+    }
+}
+
+export async function updateTripAction(tripId: string, data: {
+    route_name: string;
+    departure_time: string;
+    bus_id: string;
+    assistant_id: string;
+    status: string;
+    stops: { id?: string; location_name: string; stop_order: number; planned_arrival: string }[];
+}) {
+    try {
+        await query(
+            'UPDATE trips SET route_name = $1, departure_time = $2, bus_id = $3, assistant_id = $4, status = $5 WHERE id = $6',
+            [data.route_name, data.departure_time, data.bus_id, data.assistant_id, data.status, tripId]
+        );
+
+        // Delete existing stops and re-insert
+        await query('DELETE FROM stops WHERE trip_id = $1', [tripId]);
+        for (const stop of data.stops) {
+            await query(
+                'INSERT INTO stops (trip_id, location_name, stop_order, planned_arrival) VALUES ($1, $2, $3, $4)',
+                [tripId, stop.location_name, stop.stop_order, stop.planned_arrival]
+            );
+        }
+
+        revalidatePath('/dashboard/trips');
+        return { success: true };
+    } catch (error) {
+        console.error('updateTripAction error:', error);
+        return { error: 'Sefer güncellenirken bir hata oluştu' };
+    }
+}
+
+export async function deleteTripAction(tripId: string) {
+    try {
+        await query('DELETE FROM trips WHERE id = $1', [tripId]);
+        revalidatePath('/dashboard/trips');
+        return { success: true };
+    } catch (error) {
+        console.error('deleteTripAction error:', error);
+        return { error: 'Sefer silinirken bir hata oluştu' };
+    }
+}
+
+export async function getTripStopsAction(tripId: string) {
+    try {
+        const result = await query('SELECT * FROM stops WHERE trip_id = $1 ORDER BY stop_order ASC', [tripId]);
+        return { stops: result.rows };
+    } catch (error) {
+        console.error('getTripStopsAction error:', error);
+        return { error: 'Duraklar yüklenirken bir hata oluştu' };
     }
 }
