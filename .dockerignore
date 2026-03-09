@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+tmp/
+supabase_creds*.json
+HESAPLAR.docx
+PROJE.docx
+yolcu_test_listesi.csv
+.env*
+supabase/
+.vercel

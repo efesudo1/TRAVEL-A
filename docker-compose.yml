@@ -1,0 +1,81 @@
+# ============================================
+# DIGIBUS - Docker Compose (Development + Production)
+# ============================================
+
+services:
+  # --- Next.js App ---
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: digibus-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://digibus_user:${DB_PASSWORD:-digibus_secure_2024}@db:5432/digibus
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-http://localhost:54321}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - digibus-network
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # --- PostgreSQL ---
+  db:
+    image: postgres:16-alpine
+    container_name: digibus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: digibus
+      POSTGRES_USER: digibus_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-digibus_secure_2024}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./supabase-schema-standalone.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - ./migrations:/docker-entrypoint-initdb.d/migrations
+    networks:
+      - digibus-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U digibus_user -d digibus" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --- Nginx Reverse Proxy ---
+  nginx:
+    image: nginx:alpine
+    container_name: digibus-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - digibus-network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  digibus-network:
+    driver: bridge
