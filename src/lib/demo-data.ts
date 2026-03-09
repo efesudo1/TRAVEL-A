@@ -188,9 +188,9 @@ export function getDashboardStats() {
 
 // Demo Muavin accounts
 export const demoMuavinler: MuavinAccount[] = [
-    { id: 'm1', fullName: 'Hasan Demirci', username: 'metro-turizm-001', password: 'DG4821', companyId: 'c1', companyName: 'Metro Turizm', createdAt: now.toISOString() },
-    { id: 'm2', fullName: 'Mehmet Kara', username: 'metro-turizm-002', password: 'DG7392', companyId: 'c1', companyName: 'Metro Turizm', createdAt: now.toISOString() },
-    { id: 'm3', fullName: 'Ali Yıldız', username: 'kamil-koc-001', password: 'DG5614', companyId: 'c2', companyName: 'Kamil Koç', createdAt: now.toISOString() },
+    { id: 'm1', fullName: 'Hasan Demirci', username: 'metro-turizm-001', password: '******', companyId: 'c1', companyName: 'Metro Turizm', createdAt: now.toISOString() },
+    { id: 'm2', fullName: 'Mehmet Kara', username: 'metro-turizm-002', password: '******', companyId: 'c1', companyName: 'Metro Turizm', createdAt: now.toISOString() },
+    { id: 'm3', fullName: 'Ali Yıldız', username: 'kamil-koc-001', password: '******', companyId: 'c2', companyName: 'Kamil Koç', createdAt: now.toISOString() },
 ];
 
 // ============================================
@@ -199,7 +199,7 @@ export const demoMuavinler: MuavinAccount[] = [
 export const demoOwner = {
     id: 'owner1',
     email: 'owner@digibus.com',
-    password: 'digibus2026',
+    password: '******',
     fullName: 'DiGibus Yönetici',
 };
 
@@ -207,17 +207,17 @@ export const demoOwner = {
 // ADMIN ACCOUNTS — Her şirket için bir admin
 // ============================================
 export const demoAdmins: AdminAccount[] = [
-    { id: 'a1', email: 'admin@metro.com', password: 'metro123', fullName: 'Can Demir', companyId: 'c1', companyName: 'Metro Turizm', createdAt: now.toISOString() },
-    { id: 'a2', email: 'admin@kamilkoc.com', password: 'kamil123', fullName: 'Berk Aydın', companyId: 'c2', companyName: 'Kamil Koç', createdAt: now.toISOString() },
+    { id: 'a1', email: 'admin@metro.com', password: '******', fullName: 'Can Demir', companyId: 'c1', companyName: 'Metro Turizm', createdAt: now.toISOString() },
+    { id: 'a2', email: 'admin@kamilkoc.com', password: '******', fullName: 'Berk Aydın', companyId: 'c2', companyName: 'Kamil Koç', createdAt: now.toISOString() },
 ];
 
 // ============================================
 // PASSENGER ACCOUNTS — E-posta/şifre ile kayıt
 // ============================================
 export const demoPassengers: PassengerAccount[] = [
-    { id: 'p1', email: 'ahmet@email.com', password: 'yolcu123', fullName: 'Ahmet Yılmaz', createdAt: now.toISOString() },
-    { id: 'p2', email: 'zeynep@email.com', password: 'yolcu123', fullName: 'Zeynep Kaya', createdAt: now.toISOString() },
-    { id: 'p3', email: 'fatma@email.com', password: 'yolcu123', fullName: 'Fatma Çelik', createdAt: now.toISOString() },
+    { id: 'p1', email: 'ahmet@example.com', password: '******', fullName: 'Ahmet Yılmaz', createdAt: now.toISOString() },
+    { id: 'p2', email: 'zeynep@example.com', password: '******', fullName: 'Zeynep Kaya', createdAt: now.toISOString() },
+    { id: 'p3', email: 'fatma@example.com', password: '******', fullName: 'Fatma Çelik', createdAt: now.toISOString() },
 ];
 
 // ============================================
